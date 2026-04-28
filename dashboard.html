@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laser&Co Porto Alegre | Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f0f2f5;
+      --card: #ffffff;
+      --text: #1a1f36;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --c-iguatemi: #4f6af0;
+      --c-patio24:  #7c3aed;
+      --c-praiadb:  #f97316;
+    }
+
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Header ── */
+    .header { background: var(--text); color: #fff; padding: 22px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .header h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.4px; }
+    .header p  { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 3px; }
+    .header-right { font-size: 11px; color: rgba(255,255,255,0.45); text-align: right; white-space: nowrap; }
+
+    /* ── Container ── */
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 28px 20px; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+    .tab { padding: 9px 18px; border-radius: 8px; border: 2px solid var(--border); font-size: 13px; font-weight: 600; cursor: pointer; background: var(--card); color: var(--muted); transition: all .18s; }
+    .tab:hover { border-color: #cbd5e1; color: var(--text); }
+    .tab.active { color: #fff; border-color: transparent; }
+    .tab[data-id="todas"].active    { background: var(--text); }
+    .tab[data-id="iguatemi"].active { background: var(--c-iguatemi); }
+    .tab[data-id="patio24"].active  { background: var(--c-patio24); }
+    .tab[data-id="praiadb"].active  { background: var(--c-praiadb); }
+
+    /* ── Cards ── */
+    .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 22px; }
+    @media (max-width: 920px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 600px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+    .card { background: var(--card); border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+    .card-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 8px; }
+    .card-value { font-size: 26px; font-weight: 800; line-height: 1; }
+    .card-sub   { font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+    /* ── Chart card ── */
+    .chart-card { background: var(--card); border-radius: 12px; padding: 22px 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 22px; }
+    .chart-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 18px; color: var(--text); }
+    .chart-wrap { height: 270px; position: relative; }
+    .empty { height: 270px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; }
+
+    /* ── Action buttons ── */
+    .action-btns { display: flex; gap: 12px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+    .btn { padding: 12px 24px; border-radius: 50px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; transition: all .18s; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+    .btn-wa     { background: #25D366; color: #fff; box-shadow: 0 4px 14px rgba(37,211,102,0.3); }
+    .btn-wa:hover { background: #1ebe5d; transform: translateY(-1px); }
+    .btn-attach { background: var(--card); color: var(--text); border: 2px solid var(--border); }
+    .btn-attach:hover { border-color: #94a3b8; background: #f8fafc; }
+    .btn-pdf    { background: var(--text); color: #fff; box-shadow: 0 4px 14px rgba(26,31,54,0.2); }
+    .btn-pdf:hover { background: #2d3561; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: #1a1f36; color: #fff; padding: 12px 22px; border-radius: 50px;
+      font-size: 13px; font-weight: 600; white-space: nowrap;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.22); z-index: 9999;
+      transition: transform .3s cubic-bezier(.175,.885,.32,1.275), opacity .3s;
+      opacity: 0; pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.ok   { background: #059669; }
+    .toast.err  { background: #dc2626; }
+
+    /* ── Footer ── */
+    footer { text-align: center; font-size: 11px; color: var(--muted); padding: 8px 0 24px; }
+
+    /* ══════════════════════════════════════════
+       SEÇÕES DE IMPRESSÃO — estilos FORA do
+       @media print para o html2canvas enxergar
+    ══════════════════════════════════════════ */
+    .print-area { display: none; }
+
+    /* Cada página ocupa exatamente A4 landscape em px (96dpi) */
+    .print-page {
+      width: 1122px;
+      height: 794px;
+      display: flex;
+      flex-direction: column;
+      font-family: 'Inter', sans-serif;
+      background: #f4f5f8;
+      padding: 28px 32px;
+      overflow: hidden;
+    }
+
+    .pp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 22px;
+      border-radius: 12px;
+      color: #fff;
+      margin-bottom: 16px;
+      flex-shrink: 0;
+    }
+    .pp-title { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+    .pp-sub   { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+    .pp-meta  { text-align: right; font-size: 11px; opacity: 0.75; line-height: 1.7; }
+
+    .pp-cards {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+    }
+    .pp-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .pp-card-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #6b7280; margin-bottom: 5px; }
+    .pp-card-value { font-size: 22px; font-weight: 800; line-height: 1; }
+    .pp-card-sub   { font-size: 10px; color: #9ca3af; margin-top: 4px; }
+
+    .pp-chart-card {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      padding: 14px 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .pp-chart-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .pp-chart-wrap { flex: 1; position: relative; min-height: 0; }
+    .pp-chart-wrap canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; }
+
+    .pp-footer {
+      text-align: center;
+      font-size: 9px;
+      color: #9ca3af;
+      margin-top: 12px;
+      flex-shrink: 0;
+      padding-top: 8px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    /* ── @media print (Ctrl+P fallback) ── */
+    @page { size: A4 landscape; margin: 0; }
+    @media print {
+      .header, .wrap, footer { display: none !important; }
+      .print-area { display: block !important; }
+      .print-page { width: 100vw; height: 100vh; page-break-after: always; }
+      .print-page:last-child { page-break-after: avoid; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ TELA ══ -->
+<div class="header">
+  <div>
+    <h1>Laser&amp;Co Porto Alegre</h1>
+    <p>Dashboard de Campanhas &middot; Abril 2026</p>
+  </div>
+  <div class="header-right" id="last-update"></div>
+</div>
+
+<div class="wrap">
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-id="todas">Todas as Unidades</button>
+    <button class="tab" data-id="iguatemi">L&amp;C Iguatemi</button>
+    <button class="tab" data-id="patio24">L&amp;C P&aacute;tio 24</button>
+    <button class="tab" data-id="praiadb">L&amp;C Praia de Belas</button>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="chart-card">
+    <h3 id="chart-title">Conversas por dia</h3>
+    <div class="chart-wrap" id="chart-wrap">
+      <canvas id="grafico"></canvas>
+    </div>
+  </div>
+
+  <div class="action-btns">
+    <a class="btn btn-wa" href="https://wa.me/5545998247530" target="_blank">Falar com o Gestor</a>
+    <button class="btn btn-attach" id="btn-atualizar">Atualizar Dados</button>
+    <button class="btn btn-pdf"    id="btn-pdf">Baixar em PDF</button>
+    <input type="file" id="file-input-update" multiple accept=".xlsx,.xls,.csv" style="display:none">
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <footer>Laser&amp;Co Porto Alegre &middot; Dados: Meta Ads &middot; Gerado automaticamente</footer>
+</div>
+
+<!-- ══ SEÇÕES DE IMPRESSÃO ══ -->
+<div class="print-area" id="print-area">
+
+  <div class="print-page">
+    <div class="pp-header" style="background:#4f6af0">
+      <div>
+        <div class="pp-title">L&amp;C Iguatemi</div>
+        <div class="pp-sub">Laser&amp;Co Porto Alegre &middot; Abril 2026 &middot; Campanha: Inaugura&ccedil;&atilde;o</div>
+      </div>
+      <div class="pp-meta" id="pp-meta-iguatemi"></div>
+    </div>
+    <div class="pp-cards" id="pp-cards-iguatemi"></div>
+    <div class="pp-chart-card">
+      <div class="pp-chart-title">Conversas por dia via WhatsApp</div>
+      <div class="pp-chart-wrap"><canvas id="pp-chart-iguatemi"></canvas></div>
+    </div>
+    <div class="pp-footer">Laser&amp;Co Porto Alegre &middot; Dashboard de Campanhas &middot; <span class="pp-gen-date"></span></div>
+  </div>
+
+  <div class="print-page">
+    <div class="pp-header" style="background:#7c3aed">
+      <div>
+        <div class="pp-title">L&amp;C P&aacute;tio 24</div>
+        <div class="pp-sub">Laser&amp;Co Porto Alegre &middot; Abril 2026 &middot; Campanha: Anivers&aacute;rio</div>
+      </div>
+      <div class="pp-meta" id="pp-meta-patio24"></div>
+    </div>
+    <div class="pp-cards" id="pp-cards-patio24"></div>
+    <div class="pp-chart-card">
+      <div class="pp-chart-title">Conversas por dia via WhatsApp</div>
+      <div class="pp-chart-wrap"><canvas id="pp-chart-patio24"></canvas></div>
+    </div>
+    <div class="pp-footer">Laser&amp;Co Porto Alegre &middot; Dashboard de Campanhas &middot; <span class="pp-gen-date"></span></div>
+  </div>
+
+  <div class="print-page">
+    <div class="pp-header" style="background:#f97316">
+      <div>
+        <div class="pp-title">L&amp;C Praia de Belas</div>
+        <div class="pp-sub">Laser&amp;Co Porto Alegre &middot; Abril 2026 &middot; Campanha: Anivers&aacute;rio</div>
+      </div>
+      <div class="pp-meta" id="pp-meta-praiadb"></div>
+    </div>
+    <div class="pp-cards" id="pp-cards-praiadb"></div>
+    <div class="pp-chart-card">
+      <div class="pp-chart-title">Conversas por dia via WhatsApp</div>
+      <div class="pp-chart-wrap"><canvas id="pp-chart-praiadb"></canvas></div>
+    </div>
+    <div class="pp-footer">Laser&amp;Co Porto Alegre &middot; Dashboard de Campanhas &middot; <span class="pp-gen-date"></span></div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// DADOS
+// ============================================================
+const FRANQUIAS = [
+  {
+    id: "iguatemi", nome: "L&C Iguatemi", campanha: "Inauguração", cor: "#4f6af0",
+    investimento: 1703.74, saldoConta: 630.26,
+    leads: [
+      { data: "2026-04-09", count: 0  }, { data: "2026-04-10", count: 0  },
+      { data: "2026-04-11", count: 5  }, { data: "2026-04-12", count: 9  },
+      { data: "2026-04-13", count: 3  }, { data: "2026-04-14", count: 12 },
+      { data: "2026-04-15", count: 13 }, { data: "2026-04-16", count: 9  },
+      { data: "2026-04-17", count: 12 }, { data: "2026-04-18", count: 18 },
+      { data: "2026-04-19", count: 21 }, { data: "2026-04-20", count: 17 },
+      { data: "2026-04-21", count: 20 }, { data: "2026-04-22", count: 12 },
+      { data: "2026-04-23", count: 11 }, { data: "2026-04-24", count: 11 },
+      { data: "2026-04-25", count: 10 }, { data: "2026-04-26", count: 22 },
+      { data: "2026-04-27", count: 15 }, { data: "2026-04-28", count: 1  },
+    ]
+  },
+  {
+    id: "patio24", nome: "L&C Pátio 24", campanha: "Aniversário", cor: "#7c3aed",
+    investimento: 1332.24, saldoConta: 535.24,
+    leads: [
+      { data: "2026-04-09", count: 0  }, { data: "2026-04-10", count: 0  },
+      { data: "2026-04-11", count: 4  }, { data: "2026-04-12", count: 25 },
+      { data: "2026-04-13", count: 18 }, { data: "2026-04-14", count: 16 },
+      { data: "2026-04-15", count: 13 }, { data: "2026-04-16", count: 7  },
+      { data: "2026-04-17", count: 14 }, { data: "2026-04-18", count: 27 },
+      { data: "2026-04-19", count: 24 }, { data: "2026-04-20", count: 12 },
+      { data: "2026-04-21", count: 4  }, { data: "2026-04-22", count: 0  },
+      { data: "2026-04-23", count: 0  }, { data: "2026-04-24", count: 0  },
+      { data: "2026-04-25", count: 25 }, { data: "2026-04-26", count: 24 },
+      { data: "2026-04-27", count: 10 }, { data: "2026-04-28", count: 0  },
+    ]
+  },
+  {
+    id: "praiadb", nome: "L&C Praia de Belas", campanha: "Aniversário", cor: "#f97316",
+    investimento: 1355.02, saldoConta: 957.59,
+    leads: [
+      { data: "2026-04-09", count: 0  }, { data: "2026-04-10", count: 0  },
+      { data: "2026-04-11", count: 22 }, { data: "2026-04-12", count: 36 },
+      { data: "2026-04-13", count: 52 }, { data: "2026-04-14", count: 26 },
+      { data: "2026-04-15", count: 32 }, { data: "2026-04-16", count: 27 },
+      { data: "2026-04-17", count: 27 }, { data: "2026-04-18", count: 28 },
+      { data: "2026-04-19", count: 30 }, { data: "2026-04-20", count: 26 },
+      { data: "2026-04-21", count: 17 }, { data: "2026-04-22", count: 25 },
+      { data: "2026-04-23", count: 29 }, { data: "2026-04-24", count: 22 },
+      { data: "2026-04-25", count: 0  }, { data: "2026-04-26", count: 0  },
+      { data: "2026-04-27", count: 0  }, { data: "2026-04-28", count: 0  },
+    ]
+  }
+];
+
+// ============================================================
+// HELPERS
+// ============================================================
+const fmtBRL = v => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtN   = v => v.toLocaleString("pt-BR");
+const hoje   = () => new Date().toLocaleDateString("sv-SE");
+
+function filtrar(id) {
+  return id === "todas" ? FRANQUIAS : FRANQUIAS.filter(f => f.id === id);
+}
+
+function calcular(id) {
+  const lista = filtrar(id);
+  const totalConversas  = lista.reduce((s, f) => s + f.leads.reduce((a, l) => a + l.count, 0), 0);
+  const conversasHoje   = lista.reduce((s, f) => { const l = f.leads.find(x => x.data === hoje()); return s + (l ? l.count : 0); }, 0);
+  const totalInvestido  = lista.reduce((s, f) => s + f.investimento, 0);
+  const saldo           = id === "todas" ? null : (lista[0]?.saldoConta ?? null);
+  const cpl             = totalConversas > 0 ? totalInvestido / totalConversas : 0;
+  const datasSet        = new Set(lista.flatMap(f => f.leads.map(l => l.data)));
+  const datas           = [...datasSet].sort();
+  const datasets        = lista.filter(f => f.leads.some(l => l.count > 0)).map(f => {
+    const porDia = Object.fromEntries(f.leads.map(l => [l.data, l.count]));
+    return { label: f.nome, data: datas.map(d => porDia[d] || 0), backgroundColor: f.cor, borderRadius: 5, stack: "s" };
+  });
+  return { totalConversas, conversasHoje, totalInvestido, saldo, cpl, datas, datasets };
+}
+
+// ============================================================
+// TELA
+// ============================================================
+function renderCards(stats, id) {
+  const accent = id === "todas" ? "#1a1f36" : (FRANQUIAS.find(f => f.id === id)?.cor ?? "#1a1f36");
+  const saldoV = stats.saldo === null ? { v: "—", sub: "por unidade" }
+    : stats.saldo <= 0 ? { v: "R$ 0,00", sub: "encerrado" }
+    : { v: fmtBRL(stats.saldo), sub: "na conta de anúncios" };
+  document.getElementById("cards").innerHTML = [
+    { label: "Total de Conversas", value: fmtN(stats.totalConversas),   sub: "via WhatsApp" },
+    { label: "Conversas Hoje",      value: fmtN(stats.conversasHoje),    sub: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) },
+    { label: "Total Investido",     value: fmtBRL(stats.totalInvestido), sub: "campanha principal" },
+    { label: "Saldo da Conta",      value: saldoV.v,                     sub: saldoV.sub },
+    { label: "Custo por Conversa",  value: stats.cpl > 0 ? fmtBRL(stats.cpl) : "—", sub: "CPL médio" },
+  ].map(c => `<div class="card"><div class="card-label">${c.label}</div><div class="card-value" style="color:${accent}">${c.value}</div><div class="card-sub">${c.sub}</div></div>`).join("");
+}
+
+let chart = null;
+function renderChart(datas, datasets) {
+  const wrap = document.getElementById("chart-wrap");
+  if (chart) { chart.destroy(); chart = null; }
+  if (!datas.length) { wrap.innerHTML = '<div class="empty">Aguardando dados</div>'; return; }
+  if (!wrap.querySelector("canvas")) wrap.innerHTML = '<canvas id="grafico"></canvas>';
+  const labels = datas.map(d => { const [,m,day] = d.split("-"); return `${day}/${m}`; });
+  chart = new Chart(document.getElementById("grafico").getContext("2d"), {
+    type: "bar", data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: datasets.length > 1, position: "top", labels: { font: { size: 12 } } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y} conversa${ctx.parsed.y !== 1 ? "s" : ""}` } }
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 }, color: "#6b7280" } },
+        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 }, color: "#6b7280", callback: v => Number.isInteger(v) ? v : "" }, grid: { color: "#f3f4f6" } }
+      }
+    }
+  });
+}
+
+function renderDashboard(id) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.id === id));
+  const stats = calcular(id);
+  renderCards(stats, id);
+  const nome = id === "todas" ? "Todas as Unidades" : FRANQUIAS.find(f => f.id === id)?.nome ?? "";
+  document.getElementById("chart-title").textContent = `Conversas por dia${nome ? " — " + nome : ""}`;
+  renderChart(stats.datas, stats.datasets);
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg, tipo = "ok", dur = 3500) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = `toast ${tipo} show`;
+  setTimeout(() => { el.classList.remove("show"); }, dur);
+}
+
+// ============================================================
+// ATUALIZAR DADOS — parsing XLSX e CSV no browser
+// ============================================================
+
+// Mapeamento de padrões de nome de campanha → id da franquia
+const CAMP_PATTERNS = {
+  iguatemi: [/IGUATEMI/i, /INAUGURA/i],
+  patio24:  [/PATIO\s*24/i, /PATIO24/i],
+  praiadb:  [/PRAIA/i, /BELA/i],
+};
+
+// Mapeamento de conta do invoice → id da franquia
+const INVOICE_CONTAS = {
+  "1212149340997467": "iguatemi",
+  "2161966114622847": "patio24",
+  "860865039565964":  "praiadb",
+};
+
+function detectarFranquia(nomeCampanha) {
+  for (const [id, pats] of Object.entries(CAMP_PATTERNS)) {
+    if (pats.some(p => p.test(nomeCampanha))) return id;
+  }
+  return null;
+}
+
+function parseBRL(str) {
+  // "1.542,41" → 1542.41 | "1542.41" → 1542.41
+  const s = String(str).trim();
+  if (/^\d+\.\d{3},\d{2}$/.test(s)) return parseFloat(s.replace(/\./g, "").replace(",", "."));
+  if (/^\d+,\d{2}$/.test(s))        return parseFloat(s.replace(",", "."));
+  return parseFloat(s.replace(/[^0-9.]/g, "")) || 0;
+}
+
+function parseNum(v) {
+  if (typeof v === "number") return v;
+  return parseBRL(String(v));
+}
+
+function excelDateToISO(serial) {
+  // Excel serial date to YYYY-MM-DD
+  const utc = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+  return utc.toISOString().substring(0, 10);
+}
+
+async function processarXLSX(file) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array", cellDates: false });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+  if (rows.length < 2) return {};
+
+  // Detectar colunas pelo cabeçalho
+  const header = rows[0].map(c => String(c).toLowerCase());
+  const iDate  = header.findIndex(c => c.includes("início") || c.includes("inicio") || c.includes("data") || c.includes("date"));
+  const iNome  = header.findIndex(c => c.includes("nome da campanha") || c.includes("campanha"));
+  const iConv  = header.findIndex(c => c.includes("conversa") || c.includes("messaging") || c.includes("resultado"));
+  const iGasto = header.findIndex(c => c.includes("valor usado") || c.includes("valor gasto") || c.includes("montante") || c.includes("amount"));
+
+  // Fallback para posições fixas (col 1=0, 3=2, 4=3, 6=5)
+  const cDate  = iDate  >= 0 ? iDate  : 0;
+  const cNome  = iNome  >= 0 ? iNome  : 2;
+  const cConv  = iConv  >= 0 ? iConv  : 3;
+  const cGasto = iGasto >= 0 ? iGasto : 5;
+
+  const byFranquia = {};
+
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const nomeCamp = String(row[cNome] || "").trim();
+    if (!nomeCamp) continue;
+
+    const fid = detectarFranquia(nomeCamp);
+    if (!fid) continue;
+
+    if (!byFranquia[fid]) byFranquia[fid] = { leads: {}, investimento: 0 };
+
+    // Parse da data
+    const rawDate = row[cDate];
+    let dateStr = "";
+    if (typeof rawDate === "number" && rawDate > 1000) {
+      dateStr = excelDateToISO(rawDate);
+    } else {
+      const s = String(rawDate).trim();
+      const m1 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); // dd/mm/yyyy
+      const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);   // yyyy-mm-dd
+      if (m1) dateStr = `${m1[3]}-${m1[2]}-${m1[1]}`;
+      else if (m2) dateStr = s;
+    }
+
+    const conv  = parseNum(row[cConv]);
+    const gasto = parseNum(row[cGasto]);
+
+    if (dateStr) {
+      byFranquia[fid].leads[dateStr] = (byFranquia[fid].leads[dateStr] || 0) + conv;
+    }
+    byFranquia[fid].investimento += gasto;
+  }
+
+  return byFranquia;
+}
+
+async function processarCSV(file) {
+  const text = await file.text();
+  const lines = text.split(/\r?\n/);
+
+  let franquiaId = null;
+  let totalAdicionado = 0;
+  let totalCobrado = 0;
+
+  for (const line of lines) {
+    const contaM = line.match(/Conta:\s*(\d{10,})/);
+    if (contaM) franquiaId = INVOICE_CONTAS[contaM[1]] || null;
+
+    if (/Valor total cobrado/i.test(line)) {
+      const m = line.match(/"([\d.,]+)",BRL/) || line.match(/,([\d.,]+),BRL/);
+      if (m) totalCobrado = parseBRL(m[1]);
+    }
+    if (/Total de fundos adicionados/i.test(line)) {
+      const m = line.match(/"([\d.,]+)",BRL/) || line.match(/,([\d.,]+),BRL/);
+      if (m) totalAdicionado = parseBRL(m[1]);
+    }
+  }
+
+  if (!franquiaId || (!totalAdicionado && !totalCobrado)) return null;
+  return { franquiaId, saldo: totalAdicionado - totalCobrado };
+}
+
+document.getElementById("btn-atualizar").addEventListener("click", () => {
+  document.getElementById("file-input-update").click();
+});
+
+document.getElementById("file-input-update").addEventListener("change", async (e) => {
+  const files = [...e.target.files];
+  if (!files.length) return;
+
+  const btn = document.getElementById("btn-atualizar");
+  const orig = btn.textContent;
+  btn.textContent = "Processando...";
+  btn.disabled = true;
+
+  try {
+    const updates = {};
+
+    for (const file of files) {
+      const ext = file.name.split(".").pop().toLowerCase();
+
+      if (ext === "xlsx" || ext === "xls") {
+        const data = await processarXLSX(file);
+        for (const [fid, d] of Object.entries(data)) {
+          if (!updates[fid]) updates[fid] = {};
+          // Mescla leads (soma por dia)
+          if (!updates[fid].leads) updates[fid].leads = {};
+          for (const [dt, n] of Object.entries(d.leads)) {
+            updates[fid].leads[dt] = (updates[fid].leads[dt] || 0) + n;
+          }
+          updates[fid].investimento = (updates[fid].investimento || 0) + d.investimento;
+          updates[fid].temXLSX = true;
+        }
+      } else if (ext === "csv") {
+        const data = await processarCSV(file);
+        if (data) {
+          if (!updates[data.franquiaId]) updates[data.franquiaId] = {};
+          updates[data.franquiaId].saldo = data.saldo;
+          updates[data.franquiaId].temCSV = true;
+        }
+      }
+    }
+
+    let atualizadas = 0;
+    const nomes = [];
+
+    for (const [fid, upd] of Object.entries(updates)) {
+      const f = FRANQUIAS.find(x => x.id === fid);
+      if (!f) continue;
+
+      if (upd.temXLSX) {
+        const datas = Object.keys(upd.leads).sort();
+        f.leads = datas.map(d => ({ data: d, count: Math.round(upd.leads[d]) }));
+        f.investimento = Math.round(upd.investimento * 100) / 100;
+      }
+      if (upd.temCSV) {
+        f.saldoConta = Math.round(upd.saldo * 100) / 100;
+      }
+
+      atualizadas++;
+      nomes.push(f.nome.replace("L&C ", ""));
+    }
+
+    if (!atualizadas) {
+      showToast("Nenhuma unidade identificada nos arquivos", "err");
+      return;
+    }
+
+    // Re-renderiza tudo
+    const tabAtiva = document.querySelector(".tab.active")?.dataset.id || "todas";
+    renderDashboard(tabAtiva);
+
+    // Atualiza cabeçalho
+    const all = FRANQUIAS.flatMap(f => f.leads).filter(l => l.count > 0);
+    if (all.length) {
+      const last = [...all].sort((a, b) => b.data.localeCompare(a.data))[0];
+      const [y, m, d] = last.data.split("-");
+      document.getElementById("last-update").textContent = `Última atualização: ${d}/${m}/${y}`;
+    }
+
+    showToast(`Dados atualizados: ${nomes.join(", ")}`, "ok");
+
+  } catch (err) {
+    console.error(err);
+    showToast("Erro ao processar arquivo: " + err.message, "err", 5000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+    e.target.value = "";
+  }
+});
+
+// ============================================================
+// SEÇÕES DE IMPRESSÃO
+// ============================================================
+const printCharts = {};
+
+function renderPrintCards(f) {
+  const stats  = calcular(f.id);
+  const saldoV = !f.saldoConta ? "—" : f.saldoConta <= 0 ? "R$ 0,00" : fmtBRL(f.saldoConta);
+  document.getElementById(`pp-cards-${f.id}`).innerHTML = [
+    { label: "Total de Conversas", value: fmtN(stats.totalConversas),   sub: "via WhatsApp" },
+    { label: "Conversas Hoje",      value: fmtN(stats.conversasHoje),    sub: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) },
+    { label: "Total Investido",     value: fmtBRL(stats.totalInvestido), sub: "campanha principal" },
+    { label: "Saldo da Conta",      value: saldoV,                       sub: "disponível" },
+    { label: "Custo por Conversa",  value: stats.cpl > 0 ? fmtBRL(stats.cpl) : "—", sub: "CPL médio" },
+  ].map(c => `<div class="pp-card"><div class="pp-card-label">${c.label}</div><div class="pp-card-value" style="color:${f.cor}">${c.value}</div><div class="pp-card-sub">${c.sub}</div></div>`).join("");
+}
+
+function renderPrintChart(f) {
+  if (printCharts[f.id]) { printCharts[f.id].destroy(); delete printCharts[f.id]; }
+  const stats = calcular(f.id);
+  if (!stats.datas.length) return;
+  const labels = stats.datas.map(d => { const [,m,day] = d.split("-"); return `${day}/${m}`; });
+  printCharts[f.id] = new Chart(
+    document.getElementById(`pp-chart-${f.id}`).getContext("2d"), {
+      type: "bar", data: { labels, datasets: stats.datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 }, color: "#6b7280" } },
+          y: { stacked: true, beginAtZero: true, ticks: { font: { size: 10 }, color: "#6b7280", callback: v => Number.isInteger(v) ? v : "" }, grid: { color: "#f0f0f0" } }
+        }
+      }
+    }
+  );
+}
+
+function initPrintSections() {
+  const pa  = document.getElementById("print-area");
+  const now = new Date();
+  const genDate = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+                + " " + now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  document.querySelectorAll(".pp-gen-date").forEach(el => el.textContent = genDate);
+
+  // Expõe off-screen para o Chart.js poder renderizar nas canvas
+  pa.style.cssText = "display:block;position:fixed;top:-9999px;left:-9999px;";
+
+  FRANQUIAS.forEach(f => {
+    renderPrintCards(f);
+    renderPrintChart(f);
+    const last   = [...f.leads].filter(l => l.count > 0).sort((a, b) => b.data.localeCompare(a.data))[0];
+    const metaEl = document.getElementById(`pp-meta-${f.id}`);
+    if (metaEl) {
+      const total = f.leads.reduce((s, l) => s + l.count, 0);
+      metaEl.innerHTML = last
+        ? `${total} conversas registradas<br>Último dado: ${last.data.split("-").reverse().join("/")}<br>Gerado em ${genDate}`
+        : `Gerado em ${genDate}`;
+    }
+  });
+
+  requestAnimationFrame(() => { pa.style.cssText = ""; });
+}
+
+// ============================================================
+// BOTÃO PDF — html2canvas + jsPDF
+// ============================================================
+document.getElementById("btn-pdf").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-pdf");
+  btn.textContent = "Gerando PDF...";
+  btn.disabled = true;
+
+  try {
+    await document.fonts.ready;
+
+    const pa = document.getElementById("print-area");
+    // Mostra off-screen — agora o CSS .pp-* já está fora do @media print,
+    // então html2canvas vai ler todos os estilos corretamente
+    pa.style.cssText = "display:block;position:fixed;top:-9999px;left:-9999px;";
+
+    FRANQUIAS.forEach(f => { renderPrintCards(f); renderPrintChart(f); });
+
+    const now = new Date();
+    const genDate = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+                  + " " + now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    document.querySelectorAll(".pp-gen-date").forEach(el => el.textContent = genDate);
+    FRANQUIAS.forEach(f => {
+      const last   = [...f.leads].filter(l => l.count > 0).sort((a, b) => b.data.localeCompare(a.data))[0];
+      const metaEl = document.getElementById(`pp-meta-${f.id}`);
+      if (metaEl) {
+        const total = f.leads.reduce((s, l) => s + l.count, 0);
+        metaEl.innerHTML = last
+          ? `${total} conversas registradas<br>Último dado: ${last.data.split("-").reverse().join("/")}<br>Gerado em ${genDate}`
+          : `Gerado em ${genDate}`;
+      }
+    });
+
+    await new Promise(r => setTimeout(r, 450));
+
+    const pages = pa.querySelectorAll(".print-page");
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+    for (let i = 0; i < pages.length; i++) {
+      const canvas = await html2canvas(pages[i], {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#f4f5f8",
+        logging: false,
+        width: 1122,
+        height: 794,
+      });
+      const img = canvas.toDataURL("image/png");
+      if (i > 0) pdf.addPage();
+      pdf.addImage(img, "PNG", 0, 0, 297, 210);
+    }
+
+    pdf.save("Dashboard-LaserCo-Porto-Alegre.pdf");
+
+  } catch (err) {
+    console.error("Erro ao gerar PDF:", err);
+    alert("Erro ao gerar o PDF. Veja o console.");
+  } finally {
+    document.getElementById("print-area").style.cssText = "";
+    btn.textContent = "Baixar em PDF";
+    btn.disabled = false;
+  }
+});
+
+// ============================================================
+// EVENTOS + INIT
+// ============================================================
+document.querySelectorAll(".tab").forEach(tab =>
+  tab.addEventListener("click", () => renderDashboard(tab.dataset.id)));
+
+(function() {
+  const all = FRANQUIAS.flatMap(f => f.leads).filter(l => l.count > 0);
+  if (!all.length) return;
+  const last = [...all].sort((a, b) => b.data.localeCompare(a.data))[0];
+  const [y, m, d] = last.data.split("-");
+  document.getElementById("last-update").textContent = `Última atualização: ${d}/${m}/${y}`;
+})();
+
+renderDashboard("todas");
+initPrintSections();
+</script>
+</body>
+</html>
