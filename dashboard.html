@@ -430,16 +430,9 @@ const INVOICE_CONTAS = {
   "860865039565964":  "praiadb",
 };
 
-function detectarFranquia(nomeCampanha, nomeArquivo = "") {
+function detectarFranquia(nomeCampanha) {
   const nomeC = String(nomeCampanha).toUpperCase();
-  const nomeA = String(nomeArquivo).toUpperCase();
 
-  // 1. Tentar detectar pelo nome do arquivo (mais forte)
-  if (nomeA.includes("IGUATEMI")) return "iguatemi";
-  if (nomeA.includes("PATIO") || nomeA.includes("PÁTIO")) return "patio24";
-  if (nomeA.includes("PRAIA") || nomeA.includes("BELAS")) return "praiadb";
-
-  // 2. Se não achou no arquivo, tenta no nome da campanha
   for (const [id, pats] of Object.entries(CAMP_PATTERNS)) {
     if (pats.some(p => p.test(nomeC))) return id;
   }
@@ -476,11 +469,7 @@ async function processarXLSX(file) {
   const header = rows[0].map(c => String(c).toLowerCase());
   const iDate  = header.findIndex(c => c.includes("início") || c.includes("inicio") || c.includes("data") || c.includes("date"));
   const iNome  = header.findIndex(c => c.includes("nome da campanha") || c.includes("campanha"));
-  
-  let iConv = header.findIndex(c => c === "resultados" || c === "resultado");
-  if (iConv === -1) iConv = header.findIndex(c => c.includes("resultado"));
-  if (iConv === -1) iConv = header.findIndex(c => c.includes("conversa") || c.includes("messaging"));
-  
+  const iConv  = header.findIndex(c => c.includes("conversa") || c.includes("messaging") || c.includes("resultado"));
   const iGasto = header.findIndex(c => c.includes("valor usado") || c.includes("valor gasto") || c.includes("montante") || c.includes("amount"));
 
   const cDate  = iDate  >= 0 ? iDate  : 0;
@@ -495,8 +484,7 @@ async function processarXLSX(file) {
     const nomeCamp = String(row[cNome] || "").trim();
     if (!nomeCamp) continue;
 
-    // Passamos o nome do arquivo para ajudar na detecção
-    const fid = detectarFranquia(nomeCamp, file.name);
+    const fid = detectarFranquia(nomeCamp);
     if (!fid) continue;
 
     if (!byFranquia[fid]) byFranquia[fid] = { leads: {}, investimento: 0 };
