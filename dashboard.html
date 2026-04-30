@@ -277,7 +277,7 @@
 // ============================================================
 // DADOS
 // ============================================================
-const FRANQUIAS = [
+let FRANQUIAS = [
   {
     id: "iguatemi", nome: "L&C Iguatemi", campanha: "Inauguração", cor: "#4f6af0",
     investimento: 1703.74, saldoConta: 630.26,
@@ -328,6 +328,30 @@ const FRANQUIAS = [
   }
 ];
 
+// ═══════════════════════════════════════════════════
+//  PERSISTÊNCIA
+// ═══════════════════════════════════════════════════
+function salvarLocalStorage() {
+  localStorage.setItem("LASER_DASH_POA_DADOS", JSON.stringify(FRANQUIAS));
+}
+
+function carregarLocalStorage() {
+  const salvos = localStorage.getItem("LASER_DASH_POA_DADOS");
+  if (salvos) {
+    try {
+      const dados = JSON.parse(salvos);
+      FRANQUIAS.forEach(f => {
+        const s = dados.find(x => x.id === f.id);
+        if (s) {
+          f.investimento = s.investimento;
+          f.saldoConta = s.saldoConta;
+          f.leads = s.leads;
+        }
+      });
+    } catch(e) { console.error("Erro ao carregar dados salvos", e); }
+  }
+}
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -369,8 +393,8 @@ function renderCards(stats, id) {
     { label: "Total Investido",     value: fmtBRL(stats.totalInvestido), sub: "campanha principal" },
     { label: "Saldo da Conta",      value: saldoV.v,                     sub: saldoV.sub, note: "Aviso: Dados com atraso de até 24h (API Facebook). Pode haver divergência com o Gerenciador." },
     { label: "Custo por Conversa",  value: stats.cpl > 0 ? fmtBRL(stats.cpl) : "—", sub: "CPL médio" },
-  ].map(c => `
-    <div class="card">
+  ].map((c, i) => `
+    <div class="card" ${i === 3 ? 'onclick="editarSaldo(\''+id+'\')" style="cursor:pointer;" title="Clique para editar o saldo"' : ''}>
       <div class="card-label">${c.label}</div>
       <div class="card-value" style="color:${accent}">${c.value}</div>
       <div class="card-sub">${c.sub}</div>
@@ -427,9 +451,9 @@ function showToast(msg, tipo = "ok", dur = 3500) {
 
 // Mapeamento de padrões de nome de campanha → id da franquia
 const CAMP_PATTERNS = {
-  iguatemi: [/IGUATEMI/i, /INAUGURA/i],
+  iguatemi: [/IGUATEMI/i],
   patio24:  [/PATIO\s*24/i, /PATIO24/i],
-  praiadb:  [/PRAIA/i, /BELA/i],
+  praiadb:  [/PRAIA\s*DE\s*BELAS/i, /PRAIA\s*BELA/i, /BELAS/i],
 };
 
 // Mapeamento de conta do invoice → id da franquia
@@ -439,9 +463,18 @@ const INVOICE_CONTAS = {
   "860865039565964":  "praiadb",
 };
 
-function detectarFranquia(nomeCampanha) {
+function detectarFranquia(nomeCampanha, nomeArquivo = "") {
+  const nomeC = String(nomeCampanha).toUpperCase();
+  const nomeA = String(nomeArquivo).toUpperCase();
+
+  // 1. Tentar detectar pelo nome do arquivo (mais forte)
+  if (nomeA.includes("IGUATEMI")) return "iguatemi";
+  if (nomeA.includes("PATIO") || nomeA.includes("PÁTIO")) return "patio24";
+  if (nomeA.includes("PRAIA") || nomeA.includes("BELAS")) return "praiadb";
+
+  // 2. Se não achou no arquivo, tenta no nome da campanha
   for (const [id, pats] of Object.entries(CAMP_PATTERNS)) {
-    if (pats.some(p => p.test(nomeCampanha))) return id;
+    if (pats.some(p => p.test(nomeC))) return id;
   }
   return null;
 }
@@ -473,14 +506,12 @@ async function processarXLSX(file) {
 
   if (rows.length < 2) return {};
 
-  // Detectar colunas pelo cabeçalho
   const header = rows[0].map(c => String(c).toLowerCase());
   const iDate  = header.findIndex(c => c.includes("início") || c.includes("inicio") || c.includes("data") || c.includes("date"));
   const iNome  = header.findIndex(c => c.includes("nome da campanha") || c.includes("campanha"));
   const iConv  = header.findIndex(c => c.includes("conversa") || c.includes("messaging") || c.includes("resultado"));
   const iGasto = header.findIndex(c => c.includes("valor usado") || c.includes("valor gasto") || c.includes("montante") || c.includes("amount"));
 
-  // Fallback para posições fixas (col 1=0, 3=2, 4=3, 6=5)
   const cDate  = iDate  >= 0 ? iDate  : 0;
   const cNome  = iNome  >= 0 ? iNome  : 2;
   const cConv  = iConv  >= 0 ? iConv  : 3;
@@ -493,20 +524,20 @@ async function processarXLSX(file) {
     const nomeCamp = String(row[cNome] || "").trim();
     if (!nomeCamp) continue;
 
-    const fid = detectarFranquia(nomeCamp);
+    // Passamos o nome do arquivo para ajudar na detecção
+    const fid = detectarFranquia(nomeCamp, file.name);
     if (!fid) continue;
 
     if (!byFranquia[fid]) byFranquia[fid] = { leads: {}, investimento: 0 };
 
-    // Parse da data
     const rawDate = row[cDate];
     let dateStr = "";
     if (typeof rawDate === "number" && rawDate > 1000) {
       dateStr = excelDateToISO(rawDate);
     } else {
       const s = String(rawDate).trim();
-      const m1 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); // dd/mm/yyyy
-      const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);   // yyyy-mm-dd
+      const m1 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
       if (m1) dateStr = `${m1[3]}-${m1[2]}-${m1[1]}`;
       else if (m2) dateStr = s;
     }
@@ -598,8 +629,15 @@ document.getElementById("file-input-update").addEventListener("change", async (e
       if (!f) continue;
 
       if (upd.temXLSX) {
-        const datas = Object.keys(upd.leads).sort();
-        f.leads = datas.map(d => ({ data: d, count: Math.round(upd.leads[d]) }));
+        // Merge logic: keep existing leads, update with new ones
+        const leadsMap = Object.fromEntries(f.leads.map(l => [l.data, l.count]));
+        Object.entries(upd.leads).forEach(([dt, n]) => {
+          leadsMap[dt] = Math.round(n);
+        });
+        f.leads = Object.entries(leadsMap)
+          .map(([data, count]) => ({ data, count }))
+          .sort((a, b) => a.data.localeCompare(b.data));
+          
         f.investimento = Math.round(upd.investimento * 100) / 100;
       }
       if (upd.temCSV) {
@@ -628,6 +666,7 @@ document.getElementById("file-input-update").addEventListener("change", async (e
     }
 
     showToast(`Dados atualizados: ${nomes.join(", ")}`, "ok");
+    salvarLocalStorage();
 
   } catch (err) {
     console.error(err);
@@ -782,12 +821,35 @@ document.getElementById("btn-pdf").addEventListener("click", async () => {
 document.querySelectorAll(".tab").forEach(tab =>
   tab.addEventListener("click", () => renderDashboard(tab.dataset.id)));
 
+function editarSaldo(id) {
+  if (id === "todas") {
+    showToast("Selecione uma unidade específica para editar o saldo", "err");
+    return;
+  }
+  const f = FRANQUIAS.find(x => x.id === id);
+  if (!f) return;
+  const novo = prompt(`Defina o saldo para ${f.nome}:`, f.saldoConta);
+  if (novo !== null) {
+    const v = parseBRL(novo);
+    if (!isNaN(v)) {
+      f.saldoConta = v;
+      salvarLocalStorage();
+      renderDashboard(id);
+      showToast("Saldo atualizado!", "ok");
+    }
+  }
+}
+
+
+
 (function() {
+  carregarLocalStorage();
   const all = FRANQUIAS.flatMap(f => f.leads).filter(l => l.count > 0);
-  if (!all.length) return;
-  const last = [...all].sort((a, b) => b.data.localeCompare(a.data))[0];
-  const [y, m, d] = last.data.split("-");
-  document.getElementById("last-update").textContent = `Última atualização: ${d}/${m}/${y}`;
+  if (all.length) {
+    const last = [...all].sort((a, b) => b.data.localeCompare(a.data))[0];
+    const [y, m, d] = last.data.split("-");
+    document.getElementById("last-update").textContent = `Última atualização: ${d}/${m}/${y}`;
+  }
 })();
 
 renderDashboard("todas");
