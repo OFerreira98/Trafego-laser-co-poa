@@ -280,51 +280,18 @@
 let FRANQUIAS = [
   {
     id: "iguatemi", nome: "L&C Iguatemi", campanha: "Inauguração", cor: "#4f6af0",
-    investimento: 1703.74, saldoConta: 630.26,
-    leads: [
-      { data: "2026-04-09", count: 0  }, { data: "2026-04-10", count: 0  },
-      { data: "2026-04-11", count: 5  }, { data: "2026-04-12", count: 9  },
-      { data: "2026-04-13", count: 3  }, { data: "2026-04-14", count: 12 },
-      { data: "2026-04-15", count: 13 }, { data: "2026-04-16", count: 9  },
-      { data: "2026-04-17", count: 12 }, { data: "2026-04-18", count: 18 },
-      { data: "2026-04-19", count: 21 }, { data: "2026-04-20", count: 17 },
-      { data: "2026-04-21", count: 20 }, { data: "2026-04-22", count: 12 },
-      { data: "2026-04-23", count: 11 }, { data: "2026-04-24", count: 11 },
-      { data: "2026-04-25", count: 10 }, { data: "2026-04-26", count: 22 },
-      { data: "2026-04-27", count: 15 }, { data: "2026-04-28", count: 1  },
-    ]
+    investimento: 0, saldoConta: 0,
+    leads: []
   },
   {
     id: "patio24", nome: "L&C Pátio 24", campanha: "Aniversário", cor: "#7c3aed",
-    investimento: 1332.24, saldoConta: 535.24,
-    leads: [
-      { data: "2026-04-09", count: 0  }, { data: "2026-04-10", count: 0  },
-      { data: "2026-04-11", count: 4  }, { data: "2026-04-12", count: 25 },
-      { data: "2026-04-13", count: 18 }, { data: "2026-04-14", count: 16 },
-      { data: "2026-04-15", count: 13 }, { data: "2026-04-16", count: 7  },
-      { data: "2026-04-17", count: 14 }, { data: "2026-04-18", count: 27 },
-      { data: "2026-04-19", count: 24 }, { data: "2026-04-20", count: 12 },
-      { data: "2026-04-21", count: 4  }, { data: "2026-04-22", count: 0  },
-      { data: "2026-04-23", count: 0  }, { data: "2026-04-24", count: 0  },
-      { data: "2026-04-25", count: 25 }, { data: "2026-04-26", count: 24 },
-      { data: "2026-04-27", count: 10 }, { data: "2026-04-28", count: 0  },
-    ]
+    investimento: 0, saldoConta: 0,
+    leads: []
   },
   {
     id: "praiadb", nome: "L&C Praia de Belas", campanha: "Aniversário", cor: "#f97316",
-    investimento: 1355.02, saldoConta: 957.59,
-    leads: [
-      { data: "2026-04-09", count: 0  }, { data: "2026-04-10", count: 0  },
-      { data: "2026-04-11", count: 22 }, { data: "2026-04-12", count: 36 },
-      { data: "2026-04-13", count: 52 }, { data: "2026-04-14", count: 26 },
-      { data: "2026-04-15", count: 32 }, { data: "2026-04-16", count: 27 },
-      { data: "2026-04-17", count: 27 }, { data: "2026-04-18", count: 28 },
-      { data: "2026-04-19", count: 30 }, { data: "2026-04-20", count: 26 },
-      { data: "2026-04-21", count: 17 }, { data: "2026-04-22", count: 25 },
-      { data: "2026-04-23", count: 29 }, { data: "2026-04-24", count: 22 },
-      { data: "2026-04-25", count: 0  }, { data: "2026-04-26", count: 0  },
-      { data: "2026-04-27", count: 0  }, { data: "2026-04-28", count: 0  },
-    ]
+    investimento: 0, saldoConta: 0,
+    leads: []
   }
 ];
 
@@ -451,7 +418,7 @@ function showToast(msg, tipo = "ok", dur = 3500) {
 
 // Mapeamento de padrões de nome de campanha → id da franquia
 const CAMP_PATTERNS = {
-  iguatemi: [/IGUATEMI/i],
+  iguatemi: [/IGUATEMI/i, /INAUGURA/i],
   patio24:  [/PATIO\s*24/i, /PATIO24/i],
   praiadb:  [/PRAIA\s*DE\s*BELAS/i, /PRAIA\s*BELA/i, /BELAS/i],
 };
