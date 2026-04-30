@@ -299,11 +299,11 @@ let FRANQUIAS = [
 //  PERSISTÊNCIA
 // ═══════════════════════════════════════════════════
 function salvarLocalStorage() {
-  localStorage.setItem("LASER_DASH_POA_DADOS", JSON.stringify(FRANQUIAS));
+  localStorage.setItem("LASER_DASH_POA_V3", JSON.stringify(FRANQUIAS));
 }
 
 function carregarLocalStorage() {
-  const salvos = localStorage.getItem("LASER_DASH_POA_DADOS");
+  const salvos = localStorage.getItem("LASER_DASH_POA_V3");
   if (salvos) {
     try {
       const dados = JSON.parse(salvos);
