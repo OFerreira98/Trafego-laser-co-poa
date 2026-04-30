@@ -476,7 +476,11 @@ async function processarXLSX(file) {
   const header = rows[0].map(c => String(c).toLowerCase());
   const iDate  = header.findIndex(c => c.includes("início") || c.includes("inicio") || c.includes("data") || c.includes("date"));
   const iNome  = header.findIndex(c => c.includes("nome da campanha") || c.includes("campanha"));
-  const iConv  = header.findIndex(c => c.includes("conversa") || c.includes("messaging") || c.includes("resultado"));
+  
+  let iConv = header.findIndex(c => c === "resultados" || c === "resultado");
+  if (iConv === -1) iConv = header.findIndex(c => c.includes("resultado"));
+  if (iConv === -1) iConv = header.findIndex(c => c.includes("conversa") || c.includes("messaging"));
+  
   const iGasto = header.findIndex(c => c.includes("valor usado") || c.includes("valor gasto") || c.includes("montante") || c.includes("amount"));
 
   const cDate  = iDate  >= 0 ? iDate  : 0;
